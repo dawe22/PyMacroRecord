@@ -10,6 +10,7 @@ from pynput.keyboard import Key  # FUTURE SELF: DON'T REMOVE THIS!!
 from pynput.mouse import Button
 
 from utils.get_key_pressed import getKeyPressed
+from utils.keep_awake import KeepAwake
 from utils.keys import vk_nb
 from utils.record_file_management import RecordFileManagement
 from utils.show_toast import show_notification_minim
@@ -37,6 +38,7 @@ class Macro:
         self.mouse_listener = None
         self.time = time()
         self.event_delta_time=0
+        self.keep_awake = KeepAwake()
 
         self.keyboard_listener = keyboard.Listener(
                 on_press=self.__on_press, on_release=self.__on_release
@@ -146,14 +148,22 @@ class Macro:
             self.main_app.withdraw()
             Thread(target=lambda: show_notification_minim(self.main_app)).start()
         if userSettings["Playback"]["Repeat"]["Interval"] > 0:
-            Thread(target=self.__play_interval).start()
+            target = self.__play_interval
         elif userSettings["Playback"]["Repeat"]["For"] > 0:
-            Thread(target=self.__play_for).start()
-        elif userSettings["Playback"]["Repeat"]["For"] > 0 and userSettings["Playback"]["Repeat"]["Interval"] > 0:
-            Thread(target=self.__play_interval).start()
+            target = self.__play_for
         else:
-            Thread(target=self.__play_events).start()
+            target = self.__play_events
+        Thread(target=self.__run_keeping_awake, args=(target,), daemon=True).start()
         print("playback started")
+
+    def __run_keeping_awake(self, target):
+        # SetThreadExecutionState is per-thread, so the inhibit must be
+        # taken and released on the thread that actually plays the macro.
+        self.keep_awake.start()
+        try:
+            target()
+        finally:
+            self.keep_awake.stop()
 
     def __play_interval(self):
         userSettings = self.user_settings.settings_dict

@@ -1,0 +1,36 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Hämta koden
+      uses: actions/checkout@v4
+
+    - name: Sätt upp Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Installera beroenden
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Skapa EXE-filen
+      run: |
+        cd src
+        pyinstaller --onefile --windowed main.py
+
+    - name: Ladda upp den färdiga EXE-filen
+      uses: actions/upload-artifact@v4
+      with:
+        name: PyMacroRecord-EXE
+        path: src/dist/main.exe
